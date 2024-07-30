@@ -5,11 +5,29 @@ const jwt = require('jsonwebtoken');
 const { transporter, sendOTPVerificationEmail } = require('../utility/mailer');
 
 exports.signUp = async (req, res, next) => {
+    const { password, confirmPassword, ...userData } = req.body;
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+        return res.status(400).json({ status: "fail", message: "Passwords do not match" });
+    }
+
     try {
-        const newUser = await User.create(req.body);
-        res.status(201).json({ status: "success", data: { User: newUser } });
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Create the new user with hashed password
+        const newUser = await User.create({ ...userData, password: hashedPassword });
+
+        // Send success response
+        res.status(201).json({
+            status: "success",
+            data: {
+                user: newUser
+            }
+        });
     } catch (error) {
-        res.status(400).json({ status: "Fail", message: "Duplicate field value entered"  });
+        // Forward the error to the error-handling middleware
         next(error);
     }
 };
@@ -44,6 +62,7 @@ exports.login = async (req, res, next) => {
             ...result
         });
     } catch (error) {
+        console.error('Error during login:', error);
         next(error);
     }
 };
