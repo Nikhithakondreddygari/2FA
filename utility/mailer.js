@@ -2,7 +2,7 @@ const nodemailer = require('nodemailer');
 const bcryptjs = require('bcryptjs');
 const UserOTPVerification = require('../models/otpModels');
 
-exports.transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false, // true for 465, false for other ports
@@ -12,15 +12,16 @@ exports.transporter = nodemailer.createTransport({
     }
 });
 
-exports.sendOTPVerificationEmail = async (user) => {
+const sendOTPVerificationEmail = async (user) => {
     try {
         const otp = Math.floor(1000 + Math.random() * 9000);
         const hashedOTP = await bcryptjs.hash(otp.toString(), 10);
+        
         await new UserOTPVerification({
             userId: user._id,
             otp: hashedOTP,
             createdAt: Date.now(),
-            expiresAt: Date.now() + 3600000 // OTP expires in 1 hour
+            expiresAt: Date.now() + 3600000 
         }).save();
 
         await transporter.sendMail({
@@ -36,3 +37,4 @@ exports.sendOTPVerificationEmail = async (user) => {
         throw error;
     }
 };
+module.exports = { transporter, sendOTPVerificationEmail };
