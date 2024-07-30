@@ -9,6 +9,7 @@ exports.signUp = async (req, res, next) => {
         const newUser = await User.create(req.body);
         res.status(201).json({ status: "success", data: { User: newUser } });
     } catch (error) {
+        res.status(400).json({ status: "Fail", message: "Duplicate field value entered"  });
         next(error);
     }
 };
@@ -17,10 +18,17 @@ exports.login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
-        if (!email || !password) return res.status(400).json({ error: 'Invalid email or password' });
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
 
         const user = await User.findOne({ email }).select('+password');
-        if (!user || !(await user.comparePassword(password))) {
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
+
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) {
             return res.status(400).json({ error: 'Invalid email or password' });
         }
 
