@@ -7,19 +7,15 @@ const { transporter, sendOTPVerificationEmail } = require('../utility/mailer');
 exports.signUp = async (req, res, next) => {
     const { password, confirmPassword, ...userData } = req.body;
 
-    // Check if passwords match
     if (password !== confirmPassword) {
         return res.status(400).json({ status: "fail", message: "Passwords do not match" });
     }
 
     try {
-        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Create the new user with hashed password
         const newUser = await User.create({ ...userData, password: hashedPassword });
 
-        // Send success response
         res.status(201).json({
             status: "success",
             data: {
@@ -27,7 +23,6 @@ exports.signUp = async (req, res, next) => {
             }
         });
     } catch (error) {
-        // Forward the error to the error-handling middleware
         next(error);
     }
 };
@@ -71,25 +66,43 @@ exports.verifyOtp = async (req, res) => {
     try {
         const { userId, otp } = req.body;
 
-        if (!userId || !otp) throw new Error("Empty OTP details are not allowed");
+        if (!userId || !otp) {
+            return res.status(400).json({ status: "FAILED", message: "Empty OTP details are not allowed" });
+        }
 
         const otpRecord = await UserOTPVerification.findOne({ userId });
-        if (!otpRecord) throw new Error("Account record doesn't exist or has been verified already.");
+        if (!otpRecord) {
+            return res.status(400).json({ status: "FAILED", message: "Account record doesn't exist or has been verified already." });
+        }
 
         if (otpRecord.expiresAt < Date.now()) {
             await UserOTPVerification.deleteMany({ userId });
-            throw new Error("Code has expired. Please request again");
+            return res.status(400).json({ status: "FAILED", message: "Code has expired. Please request again" });
         }
 
         const isValidOTP = await bcrypt.compare(otp, otpRecord.otp);
-        if (!isValidOTP) throw new Error("Invalid code passed. Check your inbox");
+        if (!isValidOTP) {
+            return res.status(400).json({ status: "FAILED", message: "Invalid code passed. Check your inbox" });
+        }
 
         await User.updateOne({ _id: userId }, { verified: true });
         await UserOTPVerification.deleteMany({ userId });
 
-        const token = jwt.sign({ id: userId }, process.env.SECRET_KEY, { expiresIn: process.env.LOGIN_EXP });
-        res.json({ status: "VERIFIED", jwtToken: token, expirationTime: new Date(Date.now() + parseInt(process.env.LOGIN_EXP, 10) * 1000), message: "User email verified successfully." });
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: userId },
+            process.env.SECRET_KEY, 
+            { expiresIn: process.env.LOGIN_EXP || '1h' }
+        );
+
+        res.json({
+            status: "VERIFIED",
+            jwtToken: token,
+            expirationTime: new Date(Date.now() + (parseInt(process.env.LOGIN_EXP, 10) || 3600) * 1000),
+            message: "User email verified successfully."
+        });
     } catch (error) {
+        console.error('Error during OTP verification:', error);
         res.status(400).json({ status: "FAILED", message: error.message });
     }
 };
