@@ -2,6 +2,8 @@ const User = require('../models/usermodel');
 const UserOTPVerification = require('../models/otpModels');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 const { transporter, sendOTPVerificationEmail } = require('../utility/mailer');
 
 exports.signUp = async (req, res, next) => {
@@ -26,6 +28,27 @@ exports.signUp = async (req, res, next) => {
         next(error);
     }
 };
+
+const secret = speakeasy.generateSecret();
+console.log(secret);
+
+exports.twofactorsetup = (req, res) => {
+    qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+      res.send(
+        `<h1>setup authenticator</h1>
+        <h3>use the qr code to your authenticator</h3>
+        <img src=${data_url} > <br>
+        or add manually: ${secret.base32}`
+      );
+    })
+}
+
+exports.verify = (req, res) => {
+    const token = req.body.userToken;
+    console.log(token);
+    const verfied = speakeasy.totp.verify({secret: secret.base32, encoding: 'base32', token: token});
+    res.json({success: verfied});
+}
 
 exports.login = async (req, res, next) => {
     try {
