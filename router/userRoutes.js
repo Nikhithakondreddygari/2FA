@@ -3,6 +3,8 @@ const userController = require('../controller/userController');
 const router = express.Router();
 
 router.route('/signUp').post(userController.signUp);
+router.route('/twofactorsetup').get(userController.twofactorsetup);
+router.route('/verify').post(userController.verify);
 router.route('/login').post(userController.login);
 router.route('/verifyOtp').post(userController.verifyOtp);
 router.route('/sendOtp').post(userController.sendOtp);
